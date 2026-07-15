@@ -1,0 +1,10 @@
+[project]
+name = "robotiq-tools"
+version = "0.1.0"
+description = "Library for controlling Robotiq wrist camera and Hand-E gripper"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "opencv-python>=5.0.0.93",
+    "pupil-apriltags>=1.0.4.post11",
+]
