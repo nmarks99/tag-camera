@@ -1,13 +1,19 @@
 import cv2
 import numpy as np
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+CALIBRATION_IMAGES_DIR = DATA_DIR / "calibration_images"
+CALIBRATION_FILE = DATA_DIR / "camera_calibration.npz"
 
 # Load the calibration data
-with np.load('camera_calibration.npz') as data:
+with np.load(CALIBRATION_FILE) as data:
     mtx = data['mtx']
     dist = data['dist']
 
 # Load a calibration image (preferably one with noticeable lens curve at the edges)
-img = cv2.imread('calibration_images/calib_img_05.jpg')
+img = cv2.imread(str(CALIBRATION_IMAGES_DIR / "calib_img_05.jpg"))
 h, w = img.shape[:2]
 
 # Refine the camera matrix based on free scaling parameter (alpha = 0 preserves all pixels)

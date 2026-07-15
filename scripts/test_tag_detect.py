@@ -2,18 +2,22 @@ import os
 import cv2
 import numpy as np
 from pupil_apriltags import Detector
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+CALIBRATION_FILE = DATA_DIR / "camera_calibration.npz"
 
 # Configuration
 device_index = 1
-calibration_file = "camera_calibration.npz"
 tag_family = "tag36h11"
 tag_size_meters = 0.019  # Set to the physical width of your tag in meters (e.g., 50mm = 0.05m)
 
 # 1. Load calibration parameters
-if not os.path.exists(calibration_file):
-    raise FileNotFoundError(f"Missing calibration file: {calibration_file}. Run calibration first.")
+if not CALIBRATION_FILE.exists():
+    raise FileNotFoundError(f"Missing calibration file: {CALIBRATION_FILE}. Run calibration first.")
 
-with np.load(calibration_file) as data:
+with np.load(CALIBRATION_FILE) as data:
     mtx = data['mtx']
     dist = data['dist']
 

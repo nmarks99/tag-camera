@@ -1,14 +1,18 @@
 import cv2
 import os
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+CALIBRATION_IMAGES_DIR = DATA_DIR / "calibration_images"
 
 # Configuration
 device_index = 1  # Corresponds to /dev/video1
-output_dir = "calibration_images"
+output_dir = CALIBRATION_IMAGES_DIR
 image_prefix = "calib_img"
 
 # Ensure output directory exists
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
+output_dir.mkdir(parents=True, exist_ok=True)
 
 # Initialize video capture
 cap = cv2.VideoCapture(device_index)
@@ -40,8 +44,8 @@ while True:
         break
     elif key == ord('s'):
         # Generate file path
-        img_name = os.path.join(output_dir, f"{image_prefix}_{img_counter:02d}.jpg")
-        cv2.imwrite(img_name, frame)
+        img_name = output_dir / f"{image_prefix}_{img_counter:02d}.jpg"
+        cv2.imwrite(str(img_name), frame)
         print(f"Saved: {img_name}")
         img_counter += 1
 

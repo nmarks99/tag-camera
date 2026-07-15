@@ -1,6 +1,12 @@
 import numpy as np
 import cv2
 import glob
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+CALIBRATION_IMAGES_DIR = DATA_DIR / "calibration_images"
+CALIBRATION_OUTPUT = DATA_DIR / "camera_calibration.npz"
 
 # Define checkerboard dimensions (number of internal corners: columns-1, rows-1)
 # Example: An 8x6 square board has 7x5 internal corners.
@@ -18,7 +24,7 @@ objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
 # Path to the directory containing calibration images
-images = glob.glob('calibration_images/*.jpg')
+images = glob.glob(str(CALIBRATION_IMAGES_DIR / "*.jpg"))
 
 if not images:
     raise FileNotFoundError("No images found in the specified directory.")
@@ -46,8 +52,8 @@ if len(objpoints) > 0:
     )
 
     # Save camera matrix and distortion coefficients to .npz file
-    np.savez('camera_calibration.npz', mtx=mtx, dist=dist)
-    print("Calibration successful. Data saved to 'camera_calibration.npz'.")
+    np.savez(CALIBRATION_OUTPUT, mtx=mtx, dist=dist)
+    print(f"Calibration successful. Data saved to '{CALIBRATION_OUTPUT}'.")
 else:
     print("Calibration failed. No checkerboard patterns detected.")
 

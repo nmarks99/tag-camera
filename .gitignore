@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Generated data files
+data/*.npz
+data/calibration_images/
