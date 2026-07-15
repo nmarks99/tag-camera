@@ -3,10 +3,11 @@ import cv2
 import math
 from pathlib import Path
 from typing import Optional, Tuple
+from scipy.spatial.transform import Rotation
 
 DEFAULT_RESOLUTION = (640, 480)
 DEFAULT_FOCAL_LENGTH = 586
-DEFAULT_FOCUS = 520
+DEFAULT_FOCUS = 475
 FOCUS_RANGE = (350, 600)
 FOCUS_STEP = 5
 BLUR_THRESHOLD = 510
@@ -87,6 +88,12 @@ class WristCamera:
         self._last_frame: Optional[np.ndarray] = None
 
         self.open()
+        try:
+            self.load_calibration()
+        except FileNotFoundError:
+            pass
+        self.disable_autofocus()
+        self.set_focus(DEFAULT_FOCUS)
 
     def open(self):
         """Open the camera device and configure settings."""
@@ -99,7 +106,6 @@ class WristCamera:
 
         self.vidcap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
         self.vidcap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
-
 
         for _ in range(5):
             self.vidcap.read()
@@ -149,6 +155,20 @@ class WristCamera:
                 debug=0
             )
         return self._detector
+
+    def _get_camera_params(self) -> list:
+        """Get [fx, fy, cx, cy] for pose estimation."""
+        if self.calibration_loaded:
+            fx = self.intrinsic_mtx[0, 0]
+            fy = self.intrinsic_mtx[1, 1]
+            cx = self.intrinsic_mtx[0, 2]
+            cy = self.intrinsic_mtx[1, 2]
+        else:
+            w, h = self.resolution
+            fx = fy = self.camera_f
+            cx = w / 2.0
+            cy = h / 2.0
+        return [fx, fy, cx, cy]
 
     def capture(self) -> Tuple[bool, Optional[np.ndarray]]:
         """
@@ -248,8 +268,8 @@ class WristCamera:
         fy = self.intrinsic_mtx[1, 1]
         self.camera_f = (fx + fy) / 2
 
-        print(f"Calibration loaded from {path}")
-        print(f"Focal length: fx={fx:.2f}, fy={fy:.2f}, avg={self.camera_f:.2f}")
+        #  print(f"Calibration loaded from {path}")
+        #  print(f"Focal length: fx={fx:.2f}, fy={fy:.2f}, avg={self.camera_f:.2f}")
 
     def estimate_tag_distance(self, corners: np.ndarray, tag_size: float) -> float:
         """
@@ -279,9 +299,7 @@ class WristCamera:
 
     def pixel_to_meters(
         self,
-        pixel_x: float,
-        pixel_y: float,
-        distance: float
+        data: list | dict,
     ) -> Tuple[float, float]:
         """
         Convert pixel coordinates to real-world offset from optical center.
@@ -298,6 +316,22 @@ class WristCamera:
         Returns:
             Tuple of (x_meters, y_meters) offset from optical center
         """
+
+        pixel_x = 0.0
+        pixel_y = 0.0
+        distance = 0.0
+        if (isinstance(data, list)):
+            pixel_x = data[0]
+            pixel_y = data[1]
+            distance = data[2]
+        elif (isinstance(data, dict)):
+            pixel_x = data["center"][0]
+            pixel_y = data["center"][1]
+            distance = data["distance"]
+        else:
+            raise RuntimeError("Unsupported pixel data type provided")
+
+
         if self.calibration_loaded:
             pts = np.array([[[pixel_x, pixel_y]]], dtype=np.float64)
             undistorted = cv2.undistortPoints(pts, self.intrinsic_mtx, self.dist_coeffs, P=self.intrinsic_mtx)
@@ -332,15 +366,22 @@ class WristCamera:
         """
         Locate a specific AprilTag by ID.
 
-        Captures a fresh frame, runs detection, and returns info
-        for the tag matching the given ID.
+        Captures a fresh frame, runs detection with pose estimation,
+        and returns info for the tag matching the given ID.
 
         Args:
             tag_id: The AprilTag ID to search for
             tag_size: Physical tag size in meters. If None, uses self.tag_size.
 
         Returns:
-            Dict with "center", "distance", and "corners" if found, None otherwise.
+            Dict with keys:
+                "center": pixel coordinates (ndarray)
+                "distance": distance in meters (float)
+                "corners": 4x2 pixel coordinates (ndarray)
+                "pose_R": 3x3 rotation matrix (ndarray)
+                "pose_t": 3x1 translation vector (ndarray)
+                "euler_angles": (roll, pitch, yaw) in degrees (tuple)
+            Returns None if tag not found.
         """
         if not self.is_open:
             return None
@@ -354,14 +395,26 @@ class WristCamera:
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         detector = self._get_detector()
-        detections = detector.detect(gray)
+        camera_params = self._get_camera_params()
+        detections = detector.detect(
+            gray,
+            estimate_tag_pose=True,
+            camera_params=camera_params,
+            tag_size=tag_size
+        )
 
         for detection in detections:
             if detection.tag_id == tag_id:
+                r = Rotation.from_matrix(detection.pose_R)
+                roll, pitch, yaw = r.as_euler('xyz', degrees=True)
+
                 return {
                     "center": detection.center,
                     "distance": self.estimate_tag_distance(detection.corners, tag_size),
                     "corners": detection.corners,
+                    "pose_R": detection.pose_R,
+                    "pose_t": detection.pose_t,
+                    "euler_angles": (roll, pitch, yaw),
                 }
 
         return None
@@ -421,7 +474,13 @@ class WristCamera:
             current_detections = []
             if detect_tags and detector is not None:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                detections = detector.detect(gray)
+                camera_params = self._get_camera_params()
+                detections = detector.detect(
+                    gray,
+                    estimate_tag_pose=True,
+                    camera_params=camera_params,
+                    tag_size=tag_size
+                )
 
                 for detection in detections:
                     corners = detection.corners.astype(int)
@@ -430,7 +489,9 @@ class WristCamera:
 
                     tag_pos = detection.center
                     tag_dist = self.estimate_tag_distance(detection.corners, tag_size)
-                    current_detections.append((detection, tag_pos, tag_dist))
+                    r = Rotation.from_matrix(detection.pose_R)
+                    euler = r.as_euler('xyz', degrees=True)
+                    current_detections.append((detection, tag_pos, tag_dist, euler))
 
             cv2.imshow('Robotiq Wrist Camera', frame)
 
@@ -457,18 +518,19 @@ class WristCamera:
             elif key == ord('p'):
                 if len(current_detections) > 0:
                     sorted_dets = sorted(current_detections, key=lambda d: d[0].tag_id)
-                    print("=" * 50)
+                    print("=" * 70)
                     print(f"Detected {len(sorted_dets)} tag(s)")
-                    print("-" * 50)
-                    for detection, tag_pos, tag_dist in sorted_dets:
-                        margin = detection.decision_margin
+                    print("-" * 70)
+                    for detection, tag_pos, tag_dist, euler in sorted_dets:
+                        roll, pitch, yaw = euler
                         print(
                             f"  ID:{detection.tag_id:3d}  "
-                            f"Pos:[{tag_pos[0]:6.1f},{tag_pos[1]:6.1f}]  "
                             f"Dist:{tag_dist*1000:6.1f}mm  "
-                            f"Margin:{margin:6.2f}"
+                            f"Roll:{roll:+7.1f}  "
+                            f"Pitch:{pitch:+7.1f}  "
+                            f"Yaw:{yaw:+7.1f}"
                         )
-                    print("=" * 50)
+                    print("=" * 70)
                 else:
                     print("No tags detected")
 
