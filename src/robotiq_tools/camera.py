@@ -408,12 +408,16 @@ class WristCamera:
                 r = Rotation.from_matrix(detection.pose_R)
                 roll, pitch, yaw = r.as_euler('xyz', degrees=True)
 
+                tf = np.block([
+                    [detection.pose_R, detection.pose_t.reshape(3, 1)],
+                    [np.array([[0, 0, 0, 1]])]
+                ])
+
                 return {
                     "center": detection.center,
                     "distance": self.estimate_tag_distance(detection.corners, tag_size),
                     "corners": detection.corners,
-                    "pose_R": detection.pose_R,
-                    "pose_t": detection.pose_t,
+                    "tf" : tf,
                     "euler_angles": (roll, pitch, yaw),
                 }
 
