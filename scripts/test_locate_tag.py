@@ -17,7 +17,7 @@ except:
 
 try:
     while True:
-        tag = cam.locate_tag(id)
+        tag = cam.locate(id)
         if (tag):
             print(f"Tag {id} distance = {tag['distance']}")
         time.sleep(0.1)

@@ -358,7 +358,7 @@ class TagCamera:
 
         return x_m, y_m
 
-    def locate_tag(
+    def locate(
         self,
         tag_id: int,
         tag_size: Optional[float] = None
