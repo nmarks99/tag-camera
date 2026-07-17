@@ -1,4 +1,4 @@
-"""Configuration and path management for robotiq_tools."""
+"""Configuration and path management for tag_camera."""
 
 from pathlib import Path
 

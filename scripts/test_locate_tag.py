@@ -1,8 +1,8 @@
-from robotiq_tools import WristCamera
+from tag_camera import TagCamera
 import sys
 import time
 
-cam = WristCamera(device_index=1)
+cam = TagCamera(device_index=1)
 
 if len(sys.argv) != 2:
     print("Please provide ID to locate")

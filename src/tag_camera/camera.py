@@ -50,7 +50,7 @@ def is_blurry(image: np.ndarray, threshold: float = BLUR_THRESHOLD) -> bool:
     return fm < threshold
 
 
-class WristCamera:
+class TagCamera:
     """
     Interface for Robotiq Wrist Camera.
 
@@ -253,7 +253,7 @@ class WristCamera:
             path: Path to calibration file. If None, uses default location.
         """
         if path is None:
-            from robotiq_tools.config import get_calibration_file
+            from tag_camera.config import get_calibration_file
             path = get_calibration_file()
 
         path = Path(path)
