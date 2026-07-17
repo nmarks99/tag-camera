@@ -378,9 +378,7 @@ class TagCamera:
                 "center": pixel coordinates (ndarray)
                 "distance": distance in meters (float)
                 "corners": 4x2 pixel coordinates (ndarray)
-                "pose_R": 3x3 rotation matrix (ndarray)
-                "pose_t": 3x1 translation vector (ndarray)
-                "euler_angles": (roll, pitch, yaw) in degrees (tuple)
+                "tf": 4x4 transformation matrix from Camera origin to AprilTag (ndarray)
             Returns None if tag not found.
         """
         if not self.is_open:
@@ -405,11 +403,14 @@ class TagCamera:
 
         for detection in detections:
             if detection.tag_id == tag_id:
-                r = Rotation.from_matrix(detection.pose_R)
-                roll, pitch, yaw = r.as_euler('xyz', degrees=True)
+
+                # Need to flip about the Z axis
+                R_flip = np.diag([-1, -1, 1])
+                R_corrected = R_flip @ detection.pose_R
+                t_corrected = R_flip @ detection.pose_t
 
                 tf = np.block([
-                    [detection.pose_R, detection.pose_t.reshape(3, 1)],
+                    [R_corrected, t_corrected.reshape(3, 1)],
                     [np.array([[0, 0, 0, 1]])]
                 ])
 
@@ -418,7 +419,6 @@ class TagCamera:
                     "distance": self.estimate_tag_distance(detection.corners, tag_size),
                     "corners": detection.corners,
                     "tf" : tf,
-                    "euler_angles": (roll, pitch, yaw),
                 }
 
         return None
