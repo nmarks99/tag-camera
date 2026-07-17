@@ -88,10 +88,6 @@ class TagCamera:
         self._last_frame: Optional[np.ndarray] = None
 
         self.open()
-        try:
-            self.load_calibration()
-        except FileNotFoundError:
-            pass
         self.disable_autofocus()
         self.set_focus(DEFAULT_FOCUS)
 
@@ -245,18 +241,14 @@ class TagCamera:
         self.set_focus(best_focus)
         return best_focus
 
-    def load_calibration(self, path: Optional[Path] = None):
+    def load_calibration(self, file_path: str):
         """
         Load camera calibration from .npz file.
 
         Args:
             path: Path to calibration file. If None, uses default location.
         """
-        if path is None:
-            from tag_camera.config import get_calibration_file
-            path = get_calibration_file()
-
-        path = Path(path)
+        path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"Calibration file not found: {path}")
 
@@ -267,9 +259,6 @@ class TagCamera:
         fx = self.intrinsic_mtx[0, 0]
         fy = self.intrinsic_mtx[1, 1]
         self.camera_f = (fx + fy) / 2
-
-        #  print(f"Calibration loaded from {path}")
-        #  print(f"Focal length: fx={fx:.2f}, fy={fy:.2f}, avg={self.camera_f:.2f}")
 
     def estimate_tag_distance(self, corners: np.ndarray, tag_size: float) -> float:
         """
@@ -317,9 +306,6 @@ class TagCamera:
             Tuple of (x_meters, y_meters) offset from optical center
         """
 
-        pixel_x = 0.0
-        pixel_y = 0.0
-        distance = 0.0
         if (isinstance(data, list)):
             pixel_x = data[0]
             pixel_y = data[1]
