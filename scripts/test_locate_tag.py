@@ -17,17 +17,11 @@ except:
 
 try:
     while True:
-        res = cam.locate_tag(id)
+        tag = cam.locate_tag(id)
         if (res):
             x,y = cam.pixel_to_meters(res)
-            x *= 1000.0
-            y *= 1000.0
-            z = res["distance"]*1000.0
-            roll, pitch, yaw = res["euler_angles"]
-
             print(f"Tag {id}:")
-            print(f"({x:+8.2f},{y:+8.2f},{z:+8.2f}) mm")
-            print(f"({roll:+8.1f},{pitch:+8.1f},{yaw:+8.1f}) deg\n")
+            print(f"Center: ({x:+8.2f},{y:+8.2f}) pixels")
         time.sleep(0.1)
 except KeyboardInterrupt:
     pass
