@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import math
+import time
 from pathlib import Path
 from typing import Optional, Tuple
 from scipy.spatial.transform import Rotation
@@ -216,29 +217,23 @@ class TagCamera:
         return int(self.vidcap.get(cv2.CAP_PROP_FOCUS))
 
     def scan_focus(self) -> int:
-        """
-        Scan through focus range to find sharpest focus.
-
-        Returns:
-            Best focus value found
-        """
-        if not self.is_open:
-            raise RuntimeError("Camera is not open")
-
-        print("Scanning focus range...")
         best_focus = DEFAULT_FOCUS
-
+        best_score = 0.0
         for focus_val in range(FOCUS_RANGE[0], FOCUS_RANGE[1] + 1, FOCUS_STEP):
             self.set_focus(focus_val)
-            cv2.waitKey(100)
-
+            time.sleep(0.1)
             ret, img = self.capture()
-            if ret and not is_blurry(img):
+            if not ret:
+                continue
+            score = variance_of_laplacian(
+                cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            )
+            if score > best_score:
+                best_score = score
                 best_focus = focus_val
-                print(f"Found good focus at {best_focus}")
-                break
-
+        print(f"Setting focus = {best_focus}")
         self.set_focus(best_focus)
+        time.sleep(0.1)
         return best_focus
 
     def load_calibration(self, file_path: str):
